@@ -46,7 +46,7 @@ if 'auth' not in st.session_state:
     st.session_state.auth = None
 
 def login_screen():
-    st.title("🛡️ Secure School Portal")
+    st.title("🇮🇳 Secure School Portal")
     col1, col2 = st.columns(2)
     with col1:
         user = st.selectbox("Select User", ["Student", "Mother"])
