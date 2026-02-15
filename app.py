@@ -2,23 +2,33 @@ import streamlit as st
 import pandas as pd
 import os
 
-# --- 1. SETUP & SYLLABUS ---
-st.set_page_config(page_title="MS Bal Shikshan Mandir Tracker", layout="wide")
+# --- 1. CONFIGURATION ---
+st.set_page_config(page_title="MS Bal Shikshan Mandir - Tracker", layout="wide")
+DATA_FILE = "persistent_syllabus_data.csv"
 
-# This is your database file
-DATA_FILE = "study_data.csv"
-
+# Subject Syllabus
 syllabus = {
-    "Maths": ["Basic Geometry", "Angles", "Integers", "Fractions", "Decimals", "Graphs", "Symmetry", "Divisibility", "HCF-LCM"],
-    "Science": ["Natural Resources", "Living World", "Classification", "Disaster Mgmt", "Substances", "Nutrition", "Skeletal System", "Motion", "Force"]
+    "Maths": [
+        "Basic Geometry", "Angles", "Integers", "Operations on Fractions",
+        "Decimal Fractions", "Bar Graphs", "Symmetry", "Divisibility", 
+        "HCF - LCM", "Equations", "Ratio & Proportion", "Percentage", 
+        "Profit - Loss", "Banks & Simple Interest", "Triangles", 
+        "Quadrilaterals", "Geometrical Constructions", "3D Shapes"
+    ],
+    "Science": [
+        "Natural Resources", "The Living World", "Diversity in Living Things", 
+        "Disaster Management", "Substances in Surroundings", "Substances in Daily Use",
+        "Nutrition and Diet", "Skeletal System & Skin", "Motion & Types of Motion",
+        "Force & Types of Force", "Work and Energy", "Simple Machines", "Sound",
+        "Light & Shadows", "Fun with Magnets", "The Universe"
+    ]
 }
 
-# --- 2. DATA LOADING/SAVING ---
+# --- 2. DATA ENGINE ---
 def load_data():
     if os.path.exists(DATA_FILE):
         return pd.read_csv(DATA_FILE)
     else:
-        # Create empty data if file doesn't exist
         rows = []
         for subj, chapters in syllabus.items():
             for ch in chapters:
@@ -28,91 +38,99 @@ def load_data():
 def save_data(df):
     df.to_csv(DATA_FILE, index=False)
 
-# Initial load into session state
 if 'df' not in st.session_state:
     st.session_state.df = load_data()
 
-# --- 3. LOGIN SYSTEM ---
+# --- 3. LOGIN GATE ---
 if 'auth' not in st.session_state:
-    st.session_state.auth = False
+    st.session_state.auth = None
 
-def login():
-    st.title("🔑 School Tracker Login")
-    user = st.selectbox("Who are you?", ["Select", "Student", "Mother"])
-    password = st.text_input("Enter Password", type="password")
-    
-    if st.button("Login"):
-        if user == "Student" and password == "pune123":
-            st.session_state.auth = "Student"
-            st.rerun()
-        elif user == "Mother" and password == "parent456":
-            st.session_state.auth = "Mother"
-            st.rerun()
-        else:
-            st.error("Wrong password!")
+def login_screen():
+    st.title("🛡️ Secure School Portal")
+    col1, col2 = st.columns(2)
+    with col1:
+        user = st.selectbox("Select User", ["Student", "Mother"])
+        password = st.text_input("Password", type="password")
+        if st.button("Log In"):
+            if user == "Student" and password == "student123":
+                st.session_state.auth = "Student"
+                st.rerun()
+            elif user == "Mother" and password == "pune2026":
+                st.session_state.auth = "Mother"
+                st.rerun()
+            else:
+                st.error("Incorrect Password!")
 
 if not st.session_state.auth:
-    login()
+    login_screen()
     st.stop()
 
-# --- 4. MAIN APP INTERFACE ---
+# --- 4. NAVIGATION & LOGOUT ---
 st.sidebar.title(f"Logged in: {st.session_state.auth}")
-if st.sidebar.button("Logout"):
-    st.session_state.auth = False
+if st.sidebar.button("Log Out"):
+    st.session_state.auth = None
     st.rerun()
 
-st.title("📖 MS Bal Shikshan Mandir - 6th Std")
+# --- 5. SEPARATE SUBJECT REPORTS ---
+st.title("📊 MS Bal Shikshan Mandir - 6th Std")
 
-# --- 5. REPORT CARD (DASHBOARD) ---
-st.subheader("📊 Work Report")
-total_chapters = len(st.session_state.df)
-approved_count = st.session_state.df["Approved"].sum()
-pending_count = total_chapters - approved_count
+# Metrics Header
+m_col1, m_col2 = st.columns(2)
 
-col1, col2 = st.columns(2)
-col1.metric("Done (Approved)", f"{approved_count}")
-col2.metric("Pending Work", f"{pending_count}")
-st.progress(int((approved_count / total_chapters) * 100))
+def draw_report(subject, col):
+    subj_df = st.session_state.df[st.session_state.df["Subject"] == subject]
+    total = len(subj_df)
+    done = subj_df["Approved"].sum()
+    percent = int((done/total)*100) if total > 0 else 0
+    col.metric(f"{subject} Progress", f"{done}/{total} Chapters", f"{percent}% Done")
+    col.progress(percent / 100)
 
-# --- 6. SUBJECT TABS ---
-tab1, tab2 = st.tabs(["Maths", "Science"])
+draw_report("Maths", m_col1)
+draw_report("Science", m_col2)
 
-def show_subject(subj, tab_obj):
-    with tab_obj:
-        st.write(f"### {subj} Checklist")
-        # Filter data for this subject
-        subj_df = st.session_state.df[st.session_state.df["Subject"] == subj]
+st.divider()
+
+# --- 6. CHAPTER MANAGEMENT ---
+tab1, tab2 = st.tabs(["🔢 Maths Syllabus", "🔬 Science Syllabus"])
+
+def render_subject_ui(subject, tab):
+    with tab:
+        st.subheader(f"Manage {subject}")
+        # Get indices for this subject
+        indices = st.session_state.df[st.session_state.df["Subject"] == subject].index
         
-        for idx, row in subj_df.iterrows():
+        # Table Header
+        h1, h2, h3, h4 = st.columns([3, 1, 1, 2])
+        h1.write("**Chapter**")
+        h2.write("**Covered**")
+        h3.write("**Revised**")
+        h4.write("**Status/Approval**")
+
+        for i in indices:
+            row = st.session_state.df.iloc[i]
             c1, c2, c3, c4 = st.columns([3, 1, 1, 2])
-            c1.text(row["Chapter"])
+            c1.write(row["Chapter"])
             
-            # STUDENT VIEW
             if st.session_state.auth == "Student":
-                # Checkboxes for Student
-                new_cov = c2.checkbox("Covered", value=row["Covered"], key=f"c_{idx}")
-                new_rev = c3.checkbox("Revised", value=row["Revised"], key=f"r_{idx}")
-                st.session_state.df.at[idx, "Covered"] = new_cov
-                st.session_state.df.at[idx, "Revised"] = new_rev
-                # Show status
-                status = "✅ Approved" if row["Approved"] else "⏳ Waiting for Mom"
+                # Student marks progress
+                st.session_state.df.at[i, "Covered"] = c2.checkbox("Done", value=row["Covered"], key=f"c_{i}")
+                st.session_state.df.at[i, "Revised"] = c3.checkbox("Done", value=row["Revised"], key=f"r_{i}")
+                status = "✅ Approved" if row["Approved"] else "⏳ Pending Mom"
                 c4.info(status)
-            
-            # MOTHER VIEW
             else:
+                # Mother approves progress
                 c2.write("✅" if row["Covered"] else "❌")
                 c3.write("✅" if row["Revised"] else "❌")
                 if row["Covered"]:
-                    new_app = c4.checkbox("Approve Chapter", value=row["Approved"], key=f"a_{idx}")
-                    st.session_state.df.at[idx, "Approved"] = new_app
+                    st.session_state.df.at[i, "Approved"] = c4.checkbox("Approve", value=row["Approved"], key=f"a_{i}")
                 else:
-                    c4.warning("Student must finish first")
+                    c4.warning("Not finished yet")
 
-show_subject("Maths", tab1)
-show_subject("Science", tab2)
+render_subject_ui("Maths", tab1)
+render_subject_ui("Science", tab2)
 
-# --- 7. THE SAVE BUTTON ---
-st.divider()
-if st.button("💾 SAVE ALL CHANGES"):
+# --- 7. SAVE ACTION ---
+st.sidebar.divider()
+if st.sidebar.button("💾 SAVE PROGRESS"):
     save_data(st.session_state.df)
-    st.success("Work saved successfully! Your Mom can now see your progress.")
+    st.sidebar.success("All data saved to Cloud!")
