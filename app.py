@@ -2,135 +2,141 @@ import streamlit as st
 import pandas as pd
 import os
 
-# --- 1. CONFIGURATION ---
-st.set_page_config(page_title="MS Bal Shikshan Mandir - Tracker", layout="wide")
-DATA_FILE = "persistent_syllabus_data.csv"
+# --- PAGE CONFIG ---
+st.set_page_config(page_title="MS Bal Shikshan Tracker", layout="wide")
 
-# Subject Syllabus
-syllabus = {
+# --- SYLLABUS DATA ---
+SYLLABUS = {
     "Maths": [
-        "Basic Geometry", "Angles", "Integers", "Operations on Fractions",
-        "Decimal Fractions", "Bar Graphs", "Symmetry", "Divisibility", 
-        "HCF - LCM", "Equations", "Ratio & Proportion", "Percentage", 
-        "Profit - Loss", "Banks & Simple Interest", "Triangles", 
-        "Quadrilaterals", "Geometrical Constructions", "3D Shapes"
+        "1. Basic Concepts in Geometry", "2. Angles", "3. Integers", 
+        "4. Operations on Fractions", "5. Decimal Fractions", "6. Bar Graphs", 
+        "7. Symmetry", "8. Divisibility", "9. HCF - LCM", "10. Equations", 
+        "11. Ratio and Proportion", "12. Percentage", "13. Profit - Loss", 
+        "14. Banks and Simple Interest", "15. Triangles", "16. Quadrilaterals", 
+        "17. Geometrical Constructions", "18. 3D Shapes"
     ],
     "Science": [
-        "Natural Resources", "The Living World", "Diversity in Living Things", 
-        "Disaster Management", "Substances in Surroundings", "Substances in Daily Use",
-        "Nutrition and Diet", "Skeletal System & Skin", "Motion & Types of Motion",
-        "Force & Types of Force", "Work and Energy", "Simple Machines", "Sound",
-        "Light & Shadows", "Fun with Magnets", "The Universe"
+        "1. Natural Resources", "2. The Living World", "3. Diversity in Living Things",
+        "4. Disaster Management", "5. Substances in Surroundings", "6. Substances in Daily Use",
+        "7. Nutrition and Diet", "8. Skeletal System & Skin", "9. Motion & Types of Motion",
+        "10. Force & Types of Force", "11. Work & Energy", "12. Simple Machines", 
+        "13. Sound", "14. Light & Shadows", "15. Fun with Magnets", "16. The Universe"
     ]
 }
 
-# --- 2. DATA ENGINE ---
+# --- DATA STORAGE ENGINE ---
+DB_FILE = "school_progress.csv"
+
 def load_data():
-    if os.path.exists(DATA_FILE):
-        return pd.read_csv(DATA_FILE)
+    if os.path.exists(DB_FILE):
+        return pd.read_csv(DB_FILE)
     else:
-        rows = []
-        for subj, chapters in syllabus.items():
+        # Create fresh data structure
+        data = []
+        for subj, chapters in SYLLABUS.items():
             for ch in chapters:
-                rows.append({"Subject": subj, "Chapter": ch, "Covered": False, "Revised": False, "Approved": False})
-        return pd.DataFrame(rows)
+                data.append({"Subject": subj, "Chapter": ch, "Covered": False, "Revised": False, "Approved": False})
+        return pd.DataFrame(data)
 
-def save_data(df):
-    df.to_csv(DATA_FILE, index=False)
-
+# Initialize Session State
 if 'df' not in st.session_state:
     st.session_state.df = load_data()
 
-# --- 3. LOGIN GATE ---
-if 'auth' not in st.session_state:
-    st.session_state.auth = None
+# --- LOGIN SYSTEM ---
+if 'user_role' not in st.session_state:
+    st.session_state.user_role = None
 
-def login_screen():
-    st.title("🇮🇳 Secure School Portal")
-    col1, col2 = st.columns(2)
-    with col1:
-        user = st.selectbox("Select User", ["Student", "Mother"])
-        password = st.text_input("Password", type="password")
-        if st.button("Log In"):
-            if user == "Student" and password == "student123":
-                st.session_state.auth = "Student"
-                st.rerun()
-            elif user == "Mother" and password == "pune2026":
-                st.session_state.auth = "Mother"
-                st.rerun()
-            else:
-                st.error("Incorrect Password!")
+def login():
+    st.title("🔑 MS Bal Shikshan Login")
+    role = st.selectbox("Who is logging in?", ["Select", "Student", "Mother"])
+    pwd = st.text_input("Enter Password", type="password")
+    
+    if st.button("Log In"):
+        if role == "Student" and pwd == "pune123":
+            st.session_state.user_role = "Student"
+            st.rerun()
+        elif role == "Mother" and pwd == "mother456":
+            st.session_state.user_role = "Mother"
+            st.rerun()
+        else:
+            st.error("Incorrect password! Hint: pune123 or mother456")
 
-if not st.session_state.auth:
-    login_screen()
+if st.session_state.user_role is None:
+    login()
     st.stop()
 
-# --- 4. NAVIGATION & LOGOUT ---
-st.sidebar.title(f"Logged in: {st.session_state.auth}")
-if st.sidebar.button("Log Out"):
-    st.session_state.auth = None
+# --- HEADER & LOGOUT ---
+st.sidebar.title(f"Hello, {st.session_state.user_role}! 👋")
+if st.sidebar.button("Logout"):
+    st.session_state.user_role = None
     st.rerun()
 
-# --- 5. SEPARATE SUBJECT REPORTS ---
-st.title("📊 MS Bal Shikshan Mandir - 6th Std")
+# --- SUBJECT REPORTS (THE DASHBOARD) ---
+st.title("📊 Study Progress Report")
+col1, col2 = st.columns(2)
 
-# Metrics Header
-m_col1, m_col2 = st.columns(2)
+def show_metric(subj, column):
+    subj_data = st.session_state.df[st.session_state.df["Subject"] == subj]
+    total = len(subj_data)
+    # Work is considered "Done" only if Mother Approved
+    done = subj_data["Approved"].sum()
+    pending = total - done
+    
+    with column:
+        st.subheader(f"{subj} Report")
+        st.metric(label="Completed", value=f"{done}/{total}", delta=f"{pending} Pending", delta_color="inverse")
+        progress_val = int((done / total) * 100)
+        st.progress(progress_val / 100)
+        st.write(f"**{progress_val}% Finish**")
 
-def draw_report(subject, col):
-    subj_df = st.session_state.df[st.session_state.df["Subject"] == subject]
-    total = len(subj_df)
-    done = subj_df["Approved"].sum()
-    percent = int((done/total)*100) if total > 0 else 0
-    col.metric(f"{subject} Progress", f"{done}/{total} Chapters", f"{percent}% Done")
-    col.progress(percent / 100)
-
-draw_report("Maths", m_col1)
-draw_report("Science", m_col2)
+show_metric("Maths", col1)
+show_metric("Science", col2)
 
 st.divider()
 
-# --- 6. CHAPTER MANAGEMENT ---
+# --- INTERACTIVE CHECKLIST ---
 tab1, tab2 = st.tabs(["🔢 Maths Syllabus", "🔬 Science Syllabus"])
 
-def render_subject_ui(subject, tab):
-    with tab:
-        st.subheader(f"Manage {subject}")
-        # Get indices for this subject
-        indices = st.session_state.df[st.session_state.df["Subject"] == subject].index
+def render_table(subj, tab_choice):
+    with tab_choice:
+        st.write(f"### {subj} Checklist")
+        # Get indices for rows belonging to this subject
+        indices = st.session_state.df[st.session_state.df["Subject"] == subj].index
         
-        # Table Header
-        h1, h2, h3, h4 = st.columns([3, 1, 1, 2])
-        h1.write("**Chapter**")
-        h2.write("**Covered**")
-        h3.write("**Revised**")
-        h4.write("**Status/Approval**")
-
-        for i in indices:
-            row = st.session_state.df.iloc[i]
-            c1, c2, c3, c4 = st.columns([3, 1, 1, 2])
-            c1.write(row["Chapter"])
+        # Display Columns
+        c1, c2, c3, c4 = st.columns([4, 2, 2, 2])
+        c1.write("**Chapter**")
+        c2.write("**Covered**")
+        c3.write("**Revised**")
+        c4.write("**Mom's Approval**")
+        
+        for idx in indices:
+            row = st.session_state.df.iloc[idx]
+            col_a, col_b, col_c, col_d = st.columns([4, 2, 2, 2])
             
-            if st.session_state.auth == "Student":
-                # Student marks progress
-                st.session_state.df.at[i, "Covered"] = c2.checkbox("Done", value=row["Covered"], key=f"c_{i}")
-                st.session_state.df.at[i, "Revised"] = c3.checkbox("Done", value=row["Revised"], key=f"r_{i}")
-                status = "✅ Approved" if row["Approved"] else "⏳ Pending Mom"
-                c4.info(status)
+            col_a.write(row["Chapter"])
+            
+            if st.session_state.user_role == "Student":
+                # Student can edit Covered and Revised
+                st.session_state.df.at[idx, "Covered"] = col_b.checkbox("Yes", value=row["Covered"], key=f"cov_{idx}")
+                st.session_state.df.at[idx, "Revised"] = col_c.checkbox("Yes", value=row["Revised"], key=f"rev_{idx}")
+                col_d.write("✅ Approved" if row["Approved"] else "⏳ Pending")
             else:
-                # Mother approves progress
-                c2.write("✅" if row["Covered"] else "❌")
-                c3.write("✅" if row["Revised"] else "❌")
+                # Mother View
+                col_b.write("✅" if row["Covered"] else "❌")
+                col_c.write("✅" if row["Revised"] else "❌")
+                # Mother can only approve if covered
                 if row["Covered"]:
-                    st.session_state.df.at[i, "Approved"] = c4.checkbox("Approve", value=row["Approved"], key=f"a_{i}")
+                    st.session_state.df.at[idx, "Approved"] = col_d.checkbox("Approve", value=row["Approved"], key=f"app_{idx}")
                 else:
-                    c4.warning("Not finished yet")
+                    col_d.write("Not ready")
 
-render_subject_ui("Maths", tab1)
-render_subject_ui("Science", tab2)
+render_table("Maths", tab1)
+render_table("Science", tab2)
 
-# --- 7. SAVE ACTION ---
+# --- SAVE BUTTON ---
 st.sidebar.divider()
-if st.sidebar.button("💾 SAVE PROGRESS"):
-    save_data(st.session_state.df)
-    st.sidebar.success("All data saved to Cloud!")
+st.sidebar.write("### Save Progress")
+if st.sidebar.button("💾 SAVE CHANGES"):
+    st.session_state.df.to_csv(DB_FILE, index=False)
+    st.sidebar.success("Saved! Now your data won't be lost.")
