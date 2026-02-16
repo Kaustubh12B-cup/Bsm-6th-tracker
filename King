@@ -1,0 +1,82 @@
+import pygame
+import math
+
+# Initialize Pygame
+pygame.init()
+screen = pygame.display.set_mode((800, 600))
+clock = pygame.time.Clock()
+
+# Colors
+WHITE = (255, 255, 255)
+RED = (255, 0, 0)
+YELLOW = (255, 255, 0)
+
+class Player:
+    def __init__(self):
+        self.pos = pygame.Vector2(400, 300)
+        self.vel = pygame.Vector2(0, 0)
+        self.angle = 0
+        self.speed = 5
+
+    def draw(self):
+        # Draw a simple triangle pointing in the direction of 'angle'
+        points = [
+            self.pos + pygame.Vector2(20, 0).rotate(self.angle),
+            self.pos + pygame.Vector2(-10, -10).rotate(self.angle),
+            self.pos + pygame.Vector2(-10, 10).rotate(self.angle),
+        ]
+        pygame.draw.polygon(screen, RED, points)
+
+class Bullet:
+    def __init__(self, pos, angle):
+        self.pos = pygame.Vector2(pos)
+        self.vel = pygame.Vector2(10, 0).rotate(angle)
+
+    def update(self):
+        self.pos += self.vel
+
+    def draw(self):
+        pygame.draw.circle(screen, YELLOW, (int(self.pos.x), int(self.pos.y)), 5)
+
+player = Player()
+bullets = []
+
+running = True
+while running:
+    screen.fill((30, 30, 30)) # Dark background
+    
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        # SHOOT logic
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_SPACE:
+                bullets.append(Bullet(player.pos, player.angle))
+
+    # MOVEMENT logic
+    keys = pygame.key.get_pressed()
+    if keys[pygame.K_LEFT]:  player.angle -= 5
+    if keys[pygame.K_RIGHT]: player.angle += 5
+    
+    # Straight (Forward) and Reverse
+    move_dir = pygame.Vector2(0, 0)
+    if keys[pygame.K_UP]:    # Straight
+        move_dir = pygame.Vector2(player.speed, 0).rotate(player.angle)
+    if keys[pygame.K_DOWN]:  # Reverse
+        move_dir = pygame.Vector2(-player.speed, 0).rotate(player.angle)
+    
+    player.pos += move_dir
+    player.draw()
+
+    # Update and draw bullets
+    for b in bullets[:]:
+        b.update()
+        b.draw()
+        # Remove off-screen bullets
+        if not screen.get_rect().collidepoint(b.pos):
+            bullets.remove(b)
+
+    pygame.display.flip()
+    clock.tick(60)
+
+pygame.quit()
